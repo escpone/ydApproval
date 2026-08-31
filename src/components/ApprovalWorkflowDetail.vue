@@ -106,16 +106,18 @@ const canEditSummary = computed(() => canEdit.value && isSummaryRole.value)
 const canEditApprover = computed(() => canEdit.value && (isSummaryRole.value || isReviewRole.value))
 const canEditNotice = computed(() => canEdit.value && isSecretary.value)
 const canEditDates = computed(() => canEdit.value && isNoticeRole.value)
-// 根据当前页签和岗位决定底部保存按钮的语义及样式模式。
-const footerMode = computed(() => {
+// 根据页签和岗位决定保存操作模式，供底部按钮与页签提示共用。
+function getSectionFooterMode(sectionKey) {
   if (!canEdit.value) return ''
-  if (activeSection.value === 'quota' && canEditQuota.value) return 'quota'
-  if (activeSection.value === 'memberQuota' && isGroupApplication.value && isSummaryRole.value) return 'member-quota'
-  if (activeSection.value === 'summary' && canEditSummary.value) return 'summary'
-  if (activeSection.value === 'notice' && canEditNotice.value) return 'notice'
-  if (activeSection.value === 'approval') return 'approval'
+  if (sectionKey === 'quota' && canEditQuota.value) return 'quota'
+  if (sectionKey === 'memberQuota' && isGroupApplication.value && isSummaryRole.value) return 'member-quota'
+  if (sectionKey === 'summary' && canEditSummary.value) return 'summary'
+  if (sectionKey === 'notice' && canEditNotice.value) return 'notice'
+  if (sectionKey === 'approval') return 'approval'
   return ''
-})
+}
+
+const footerMode = computed(() => getSectionFooterMode(activeSection.value))
 
 
 // 构建页签列表：集团、合作方/同业和后续岗位拥有不同组合。
@@ -314,7 +316,14 @@ function submit() {
           :class="{ active: activeSection === section.key }"
           @click="activeSection = section.key"
         >
-          {{ section.label }}
+          <van-badge
+            :dot="Boolean(getSectionFooterMode(section.key))"
+            position="top-right"
+            tag="span"
+            color="var(--van-danger-color)"
+          >
+            <span class="detail-tab-label">{{ section.label }}</span>
+          </van-badge>
         </button>
       </nav>
 
@@ -978,6 +987,10 @@ function submit() {
   height: 2px;
   background: var(--brand-primary);
   content: '';
+}
+
+.detail-tab-label {
+  display: inline-block;
 }
 
 .workflow-scroll {

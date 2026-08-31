@@ -258,7 +258,7 @@ function unavailable() {
 .setting-icon.amber { color: #9b6419; background: #fff7e8; }
 .setting-icon.gray { color: #626b78; background: #f0f2f4; }
 
-.setting-row > div {
+.setting-row > div:not(.van-switch) {
   display: flex;
   flex: 1;
   min-width: 0;
