@@ -1,0 +1,379 @@
+/* 全局设计令牌：统一主题色、页面间距、底部导航高度和宿主头部偏移。 */
+:root {
+  --app-header-offset: 0px;
+  --bottom-nav-height: 62px;
+  --layout-max-width: 1280px;
+  --page-gutter: 16px;
+  --brand-primary: #ff8a24;
+  --brand-primary-soft: #fff4e8;
+  --brand-primary-border: #ffb56d;
+  --van-primary-color: var(--brand-primary);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  color: #2b3037;
+  background: #f6f7f9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 根容器撑满视口，并保证窄屏设备至少保留 320px 的可布局宽度。 */
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+/* 禁止双击缩放造成移动端按钮误触，同时保留正常滚动。 */
+html {
+  touch-action: manipulation;
+}
+
+/* 页面底色和横向溢出策略由全局统一控制。 */
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: #f6f7f9;
+}
+
+/* 表单控件继承项目字体，保证 Vant 和原生控件视觉一致。 */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #4d8fe8;
+  outline-offset: 2px;
+}
+
+/* 应用外壳负责避让原生固定头部，并作为所有业务页面的背景层。 */
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: var(--app-header-offset);
+  background: #f6f7f9;
+}
+
+/* 浏览器独立运行时显示的橙色宿主头部；fixedHeader 模式由 APP 接管。 */
+.host-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: calc(44px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  color: #fff;
+  background: var(--brand-primary);
+  box-shadow: 0 1px 4px rgb(170 82 13 / 16%);
+}
+
+.host-header-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--layout-max-width);
+  height: 44px;
+  margin: auto;
+  padding-right: max(var(--page-gutter), env(safe-area-inset-right));
+  padding-left: max(var(--page-gutter), env(safe-area-inset-left));
+}
+
+.host-back,
+.host-action {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  place-items: center;
+}
+
+.host-back {
+  position: absolute;
+  left: max(10px, env(safe-area-inset-left));
+  width: 40px;
+  font-size: 24px;
+}
+
+.host-title {
+  max-width: calc(100% - 144px);
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 44px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.host-action {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  width: 84px;
+  gap: 10px;
+  padding: 0 11px;
+  background: rgb(255 166 70 / 48%);
+  border-radius: 20px;
+  grid-auto-flow: column;
+}
+
+.host-action > .van-icon {
+  font-size: 20px;
+}
+
+.host-action-divider {
+  width: 1px;
+  height: 18px;
+  background: rgb(207 105 18 / 35%);
+}
+
+.mini-program-mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  place-items: center;
+}
+
+.mini-program-mark span {
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+}
+/* 主内容区预留底部导航高度，确保最后一条审批卡片可滚动到可视区域。 */
+.main-content {
+  width: 100%;
+  max-width: var(--layout-max-width);
+  min-height: calc(100vh - 44px - env(safe-area-inset-top) - var(--bottom-nav-height));
+  min-height: calc(100dvh - 44px - env(safe-area-inset-top) - var(--bottom-nav-height));
+  margin: 0 auto;
+  /* padding-top: 22px; */
+  padding-right: max(var(--page-gutter), env(safe-area-inset-right));
+  padding-bottom: calc(var(--bottom-nav-height) + 24px + env(safe-area-inset-bottom));
+  padding-left: max(var(--page-gutter), env(safe-area-inset-left));
+}
+
+.main-content.host-managed {
+  min-height: calc(100vh - var(--bottom-nav-height));
+  min-height: calc(100dvh - var(--bottom-nav-height));
+}
+
+/* 页面标题通用布局，供需要大标题的业务视图复用。 */
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 47px;
+}
+
+.heading-kicker {
+  margin: 0 0 4px;
+  color: #9a9fa8;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.page-heading h1 {
+  margin: 0;
+  color: #20242b;
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 31px;
+  letter-spacing: 0;
+}
+
+/* 内容分区标题统一采用左右对齐，右侧用于显示数量或辅助信息。 */
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+
+.section-title h2 {
+  margin: 0;
+  color: #353a42;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.section-title span {
+  color: #9b9fa8;
+  font-size: 11px;
+}
+
+/* 审批卡片默认单列，媒体查询在桌面端扩展为多列网格。 */
+.approval-grid {
+  display: grid;
+  gap: 10px;
+}
+
+/* 固定底部导航适配 iOS 安全区域，并通过 z-index 覆盖页面内容。 */
+.bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgb(255 255 255 / 97%);
+  border-top: 1px solid #e4e6e9;
+  box-shadow: 0 -2px 12px rgb(30 36 44 / 5%);
+}
+
+/* 导航内部限制最大宽度，避免大屏设备按钮过度拉伸。 */
+.bottom-nav-inner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  max-width: 720px;
+  height: var(--bottom-nav-height);
+  margin: 0 auto;
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+
+.bottom-nav-inner button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 8px 2px;
+  color: #89909a;
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+}
+
+.bottom-nav-inner button .van-icon {
+  font-size: 22px;
+}
+
+.bottom-nav-inner button.active {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.nav-badge {
+  position: absolute;
+  top: -7px;
+  right: -15px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 15px;
+  text-align: center;
+  background: var(--brand-primary);
+  border: 1px solid #fff;
+  border-radius: 8px;
+}
+
+/* 平板及桌面断点：放大页面留白并启用两列审批卡片。 */
+@media (min-width: 720px) {
+  :root {
+    --page-gutter: 28px;
+  }
+
+  .main-content {
+    padding-top: 24px;
+  }
+
+  .approval-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+/* 宽屏断点：进一步增加边距，并将卡片扩展为三列。 */
+@media (min-width: 1180px) {
+  :root {
+    --page-gutter: 40px;
+  }
+
+  .approval-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* 极窄屏回收页面边距，避免文本和操作区发生横向溢出。 */
+@media (max-width: 380px) {
+  :root {
+    --page-gutter: 12px;
+  }
+}
+
+/* 触摸设备使用 16px 输入字号，降低 iOS 自动放大表单的概率。 */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .van-field__control {
+    font-size: 16px !important;
+  }
+}
+
+/* 横屏矮视口压缩导航和标题高度，为业务内容保留更多空间。 */
+@media (orientation: landscape) and (max-height: 520px) {
+  :root {
+    --bottom-nav-height: 56px;
+  }
+
+  .main-content {
+    padding-top: 14px;
+  }
+
+  .page-heading {
+    min-height: 42px;
+  }
+
+  .page-heading h1 {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
