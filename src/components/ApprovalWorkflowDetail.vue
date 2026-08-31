@@ -42,6 +42,20 @@ const amountFields = [
 const conclusionOptions = ['同意', '打回', '否决']
 const voteOptions = ['同意', '有条件同意', '再议', '否决']
 const voteResultOptions = ['同意', '有条件同意', '再议', '否决']
+
+// 风险接口未接入时用于演示弹窗结构；真实数据会优先覆盖这组结果。
+const defaultRiskInterceptItems = [
+  {
+    description: '集中度限额控制检查',
+    conclusion: '该业务为授信变更，无需检查集中度限额。',
+    status: 'passed',
+  },
+  {
+    description: '终审意见提示',
+    conclusion: '该项终审意见为“同意”，请确认。',
+    status: 'warning',
+  },
+]
 // 可被选择为有权审批人的岗位白名单。
 const authorizedApproverRoles = [
   '总行有权审批人',
@@ -54,6 +68,10 @@ const authorizedApprovers = loginUsers.filter((user) => authorizedApproverRoles.
 const activeSection = ref('basic')
 // 工作流编辑副本，所有输入先写入 draft，提交时再整体回传。
 const draft = ref(createDraft())
+// 提交前暂存审批载荷，风险检查确认后才向父组件发出 decide 事件。
+const riskDialogVisible = ref(false)
+const riskRows = ref([])
+const pendingSubmission = ref(null)
 
 // 岗位在登录清单中的顺序用于控制汇总意见等后续页签。
 const roleIndex = computed(() => loginUsers.findIndex((user) => user.role === props.currentRole))
@@ -118,6 +136,7 @@ function getSectionFooterMode(sectionKey) {
 }
 
 const footerMode = computed(() => getSectionFooterMode(activeSection.value))
+const hasRiskInterceptFailure = computed(() => riskRows.value.some((row) => row.status === 'failed'))
 
 
 // 构建页签列表：集团、合作方/同业和后续岗位拥有不同组合。
@@ -151,6 +170,9 @@ watch(
   () => {
     draft.value = createDraft(props.item)
     activeSection.value = 'basic'
+    riskDialogVisible.value = false
+    riskRows.value = []
+    pendingSubmission.value = null
   },
   { immediate: true },
 )
@@ -210,6 +232,9 @@ function createDraft(item = null) {
 
 // 关闭详情弹窗，不修改父组件中的选中单据。
 function close() {
+  riskDialogVisible.value = false
+  riskRows.value = []
+  pendingSubmission.value = null
   emit('update:show', false)
 }
 
@@ -239,7 +264,117 @@ function saveSection(section) {
   showToast(messages[section])
 }
 
-// 按岗位选择结论来源，校验意见/日期后转换为统一结果码提交。
+function firstNonEmpty(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '') ?? ''
+}
+
+function normalizeRiskStatus(value) {
+  if (typeof value === 'boolean') return value ? 'passed' : 'failed'
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (['通过', '是', 'true', '1', 'y', 'yes', 'pass', 'passed', 'success', 'ok', '已通过'].includes(normalized)) return 'passed'
+  if (['不通过', '否', 'false', '0', 'n', 'no', 'fail', 'failed', 'reject', 'rejected', '拦截', '未通过'].includes(normalized)) return 'failed'
+  return 'warning'
+}
+
+function getRiskItems(source) {
+  const candidates = [
+    source?.riskInterceptItems,
+    source?.riskInterceptResults,
+    source?.riskChecks,
+    source?.riskItems,
+    source?.riskInterceptList,
+    source?.riskCheckList,
+    source?.riskControlResults,
+    source?.riskInterceptResult,
+    source?.riskCheckResult,
+    source?.riskIntercept,
+  ]
+  const candidate = candidates.find((value) => value !== undefined && value !== null)
+  if (candidate === undefined) return null
+  if (Array.isArray(candidate)) return candidate
+  const nestedKeys = ['items', 'data', 'rows', 'list', 'records']
+  for (const key of nestedKeys) {
+    const nested = candidate[key]
+    if (Array.isArray(nested)) return nested
+    if (nested && typeof nested === 'object') {
+      for (const nestedKey of nestedKeys) {
+        if (Array.isArray(nested[nestedKey])) return nested[nestedKey]
+      }
+    }
+  }
+  return []
+}
+
+function normalizeRiskRows(source) {
+  const items = getRiskItems(source) ?? defaultRiskInterceptItems
+  return items.map((entry, index) => {
+    const item = entry && typeof entry === 'object' ? entry : { conclusion: entry }
+    const rawStatus = firstNonEmpty(
+      item.isPass,
+      item.isPassed,
+      item.passed,
+      item.pass,
+      item.passFlag,
+      item.whetherPassed,
+      item.whetherPass,
+      item.status,
+      item.result,
+      item.conclusion,
+    )
+    const status = normalizeRiskStatus(rawStatus)
+    return {
+      id: item.id ?? item.ruleId ?? item.code ?? index,
+      description: firstNonEmpty(
+        item.riskInterceptProjectDescription,
+        item.riskInterceptItemDescription,
+        item.riskInterceptProject,
+        item.riskInterceptItem,
+        item.riskProject,
+        item.riskItem,
+        item.checkItem,
+        item.project,
+        item.itemName,
+        item.description,
+      ) || '风险拦截项目' + (index + 1),
+      conclusion: firstNonEmpty(
+        item.riskInterceptConclusion,
+        item.riskConclusion,
+        item.conclusion,
+        item.checkConclusion,
+        item.resultText,
+        item.message,
+        item.remark,
+      ) || (status === 'passed' ? '通过' : status === 'failed' ? '不通过' : '警告'),
+      status,
+      passText: status === 'passed' ? '通过' : status === 'failed' ? '不通过' : '警告',
+    }
+  })
+}
+
+function openRiskCheck(submission) {
+  pendingSubmission.value = submission
+  riskRows.value = normalizeRiskRows(props.item)
+  riskDialogVisible.value = true
+}
+
+function cancelRiskCheck() {
+  riskDialogVisible.value = false
+  riskRows.value = []
+  pendingSubmission.value = null
+}
+
+function confirmRiskCheck() {
+  if (hasRiskInterceptFailure.value) {
+    showToast('存在不通过的风险拦截项，暂不能提交')
+    return
+  }
+  const submission = pendingSubmission.value
+  if (!submission) return
+  cancelRiskCheck()
+  emit('decide', submission)
+}
+
+// 按岗位选择结论来源，校验意见/日期后先执行风险拦截检查。
 function submit() {
   const info = draft.value.approvalInfo
   const conclusion = isCommitteeMember.value ? info.voteConclusion : info.conclusion
@@ -264,7 +399,7 @@ function submit() {
   const result = conclusion === '否决'
     ? 'rejected'
     : ['打回', '再议'].includes(conclusion) ? 'returned' : 'passed'
-  emit('decide', {
+  openRiskCheck({
     result,
     resultText: conclusion,
     opinion: opinion.trim(),
@@ -829,6 +964,65 @@ function submit() {
         <van-button type="primary" @click="submit">提交审批</van-button>
       </footer>
     </article>
+  </van-popup>
+
+  <van-popup
+    v-model:show="riskDialogVisible"
+    round
+    class="risk-popup"
+    :close-on-click-overlay="false"
+  >
+    <section class="risk-check" aria-labelledby="risk-check-title">
+      <header class="risk-check-header">
+        <div>
+          <span>提交前检查</span>
+          <h3 id="risk-check-title">风险拦截检查</h3>
+        </div>
+        <button class="risk-check-close" type="button" aria-label="关闭风险拦截检查" @click="cancelRiskCheck">
+          <van-icon name="cross" />
+        </button>
+      </header>
+
+      <div class="risk-check-body">
+        <div v-if="!riskRows.length" class="risk-empty">本次未返回风险拦截项目</div>
+        <div v-else class="risk-table-wrap">
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th>风险拦截项目说明</th>
+                <th>风险拦截结论</th>
+                <th>是否通过</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in riskRows"
+                :key="row.id"
+                :class="'risk-row risk-row--' + row.status"
+              >
+                <td>{{ row.description }}</td>
+                <td>{{ row.conclusion }}</td>
+                <td><span class="risk-pass-text">{{ row.passText }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p v-if="hasRiskInterceptFailure" class="risk-block-tip">
+        <van-icon name="warning-o" />存在不通过的风险拦截项，暂不能提交
+      </p>
+      <footer class="risk-actions">
+        <van-button plain @click="cancelRiskCheck">返回修改</van-button>
+        <van-button
+          type="primary"
+          :disabled="hasRiskInterceptFailure"
+          @click="confirmRiskCheck"
+        >
+          {{ hasRiskInterceptFailure ? '无法提交' : '确认提交' }}
+        </van-button>
+      </footer>
+    </section>
   </van-popup>
 </template>
 
@@ -1551,6 +1745,133 @@ textarea:read-only {
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   background: #fff;
   border-top: 1px solid #dfe2e6;
+}
+
+.risk-popup {
+  width: min(92vw, 720px);
+  max-height: min(86vh, 720px);
+  overflow: hidden;
+  background: #fff;
+}
+
+.risk-check {
+  display: flex;
+  max-height: min(86vh, 720px);
+  flex-direction: column;
+}
+
+.risk-check-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  gap: 12px;
+  padding: 15px 16px 12px;
+  border-bottom: 1px solid #e4e7ea;
+}
+
+.risk-check-header > div {
+  min-width: 0;
+}
+
+.risk-check-header span {
+  color: #9ca2ab;
+  font-size: 9px;
+}
+
+.risk-check-header h3 {
+  margin: 3px 0 0;
+  color: #252a31;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 23px;
+}
+
+.risk-check-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  color: #7d858f;
+  font-size: 18px;
+  background: transparent;
+  border: 0;
+  place-items: center;
+}
+
+.risk-check-body {
+  min-height: 92px;
+  overflow: auto;
+  padding: 14px 16px 4px;
+}
+
+.risk-table-wrap {
+  overflow-x: auto;
+}
+
+.risk-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.risk-table th,
+.risk-table td {
+  padding: 10px 8px;
+  border: 1px solid #e1e5e9;
+  line-height: 18px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.risk-table th {
+  color: #68717c;
+  font-weight: 500;
+  background: #f5f7f8;
+}
+
+.risk-table th:nth-child(1) { width: 29%; }
+.risk-table th:nth-child(2) { width: 53%; }
+.risk-table th:nth-child(3) { width: 18%; }
+
+.risk-row--passed { color: #252a31; }
+.risk-row--warning { color: #d59600; }
+.risk-row--failed { color: #cf3039; }
+
+.risk-pass-text {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.risk-empty {
+  display: grid;
+  min-height: 92px;
+  color: #858c96;
+  font-size: 12px;
+  place-items: center;
+}
+
+.risk-block-tip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 16px 0;
+  color: #cf3039;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.risk-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  flex: none;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid #e4e7ea;
 }
 
 @media (min-width: 720px) {
