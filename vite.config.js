@@ -3,8 +3,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
-  // 与 Nginx/宿主发布目录保持一致，生成资源使用该前缀。
-  base: '/creditApproval/',
+  // 与 GitHub Pages 仓库路径保持一致，生成资源使用该前缀。
+  base: '/ydApproval/',
   // 将 .vue 单文件组件编译为浏览器可执行的 JavaScript/CSS。
   plugins: [vue()],
   // 开发服务器监听所有网卡，便于移动设备或容器访问。
