@@ -200,22 +200,22 @@ const defaultMemberQuotaItems = [
   {
     id: 'MQ-01', memberName: '河南中原智造有限公司', quotaType: '敞口额度分项',
     productName: '流动资金贷款', appliedAmount: 150000000, term: '36个月', allowShared: '否',
-    approvedAmount: 140000000, approvedTerm: '36个月', approvedShared: '否',
+    approvedAmount: 140000000, approvedTerm: '36个月', approvedShared: '否', interestRate: '0%',
   },
   {
     id: 'MQ-02', memberName: '郑州智联供应链有限公司', quotaType: '合作方额度分项',
     productName: '供应链融资', appliedAmount: 60000000, term: '24个月', allowShared: '是',
-    approvedAmount: 55000000, approvedTerm: '24个月', approvedShared: '是',
+    approvedAmount: 55000000, approvedTerm: '24个月', approvedShared: '是', interestRate: '0%',
   },
   {
     id: 'MQ-03', memberName: '河南新材料科技有限公司', quotaType: '低风险额度分项',
     productName: '银行承兑汇票', appliedAmount: 40000000, term: '12个月', allowShared: '是',
-    approvedAmount: 38000000, approvedTerm: '12个月', approvedShared: '是',
+    approvedAmount: 38000000, approvedTerm: '12个月', approvedShared: '是', interestRate: '0%',
   },
   {
     id: 'MQ-04', memberName: '中原智能装备股份有限公司', quotaType: '贷后延伸额度分项',
     productName: '借新还旧', appliedAmount: 30000000, term: '12个月', allowShared: '否',
-    approvedAmount: 25000000, approvedTerm: '12个月', approvedShared: '否',
+    approvedAmount: 25000000, approvedTerm: '12个月', approvedShared: '否', interestRate: '0%',
   },
 ]
 

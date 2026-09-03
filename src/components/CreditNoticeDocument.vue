@@ -1,7 +1,9 @@
 <script setup>
+import { computed } from 'vue'
+
 // 授信通知书文档：按普通、集团和合作方/同业三种数据形态渲染纸质版式。
 // item 提供客户和额度数据，notice 提供通知书字段；其余属性控制分支和编辑权限。
-defineProps({
+const props = defineProps({
   item: {
     type: Object,
     required: true,
@@ -35,6 +37,50 @@ function formatAmount(value) {
 function formatWan(value) {
   return (Number(value || 0) / 10000).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 }
+
+// 先分后批通知书需要把成员汇总和成员级额度分项合并到同一张表中。
+// 同时保留字段别名，方便接入接口返回的不同命名方式。
+const groupAllocationRows = computed(() => {
+  const source = props.item || {}
+  const members = Array.isArray(source.groupMembers) ? source.groupMembers : []
+  const quotas = Array.isArray(source.memberQuotaItems) ? source.memberQuotaItems : []
+  const memberEntries = members.length
+    ? members
+    : [...new Map(quotas.map((quota, index) => [
+        quota.memberId || quota.memberName || quota.customer || `member-${index}`,
+        { id: quota.memberId || quota.memberName || quota.customer || index, customer: quota.memberName || quota.customer },
+      ])).values()]
+
+  return memberEntries.flatMap((member, memberIndex) => {
+    const memberName = member.customer || member.memberName || member.name || ''
+    const memberQuotas = quotas.filter((quota) => (
+      (quota.memberId != null && member.id != null && quota.memberId === member.id)
+      || quota.memberName === memberName
+      || quota.customer === memberName
+    ))
+    const entries = memberQuotas.length ? memberQuotas : [null]
+
+    return entries.map((quota, quotaIndex) => ({
+      id: quota?.id || `${member.id || memberIndex}-${quotaIndex}`,
+      memberName,
+      memberRating: quota?.creditRating || member.creditRating || props.notice?.creditRating || '',
+      memberCreditTotal: member.approvedCreditTotal
+        ?? member.approvedCredit
+        ?? member.creditTotal
+        ?? quota?.memberCreditTotal
+        ?? quota?.creditTotal,
+      quotaType: quota?.quotaType || quota?.amountType || '',
+      usageMethod: quota?.usageMethod || quota?.useMethod || quota?.productName || quota?.businessType || '',
+      amount: quota?.approvedAmount ?? quota?.amount ?? quota?.appliedAmount,
+      term: quota?.approvedTerm ?? quota?.termMonths ?? quota?.term ?? '',
+      revolving: quota?.isRevolving ?? quota?.isLoop ?? quota?.approvedShared ?? quota?.allowShared ?? '',
+      interestRate: quota?.interestRate ?? quota?.rateFloat ?? quota?.rateFloating ?? quota?.interestRateFloor ?? '',
+      marginRate: quota?.marginRate ?? quota?.guaranteeRatio ?? quota?.depositRatio ?? '',
+      showMember: quotaIndex === 0,
+      memberRowSpan: entries.length,
+    }))
+  })
+})
 </script>
 
 <template>
@@ -165,6 +211,65 @@ function formatWan(value) {
           <tr>
             <th>授信有效期</th>
             <td colspan="3">自{{ notice.effectiveDate }}至{{ notice.expiryDate }}</td>
+          </tr>
+          <tr class="group-allocation-title-row">
+            <th colspan="4">集团成员授信分配情况</th>
+          </tr>
+          <tr class="group-allocation-content-row">
+            <td colspan="4">
+              <table class="group-member-allocation-table">
+                <colgroup>
+                  <col class="allocation-member-column">
+                  <col class="allocation-rating-column">
+                  <col class="allocation-total-column">
+                  <col class="allocation-type-column">
+                  <col class="allocation-use-column">
+                  <col class="allocation-amount-column">
+                  <col class="allocation-term-column">
+                  <col class="allocation-revolving-column">
+                  <col class="allocation-rate-column">
+                  <col class="allocation-margin-column">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th rowspan="2">集团成员名称</th>
+                    <th rowspan="2">信用等级</th>
+                    <th rowspan="2">授信总额</th>
+                    <th colspan="7">分项额度使用方式及金额</th>
+                  </tr>
+                  <tr>
+                    <th>额度类型</th>
+                    <th>使用方式</th>
+                    <th>金额</th>
+                    <th>期限（月）</th>
+                    <th>是否循环</th>
+                    <th>利率浮动比（不低于）</th>
+                    <th>保证金比例</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in groupAllocationRows" :key="row.id">
+                    <template v-if="row.showMember">
+                      <td :rowspan="row.memberRowSpan" class="allocation-member-name">{{ row.memberName || '—' }}</td>
+                      <td :rowspan="row.memberRowSpan">{{ row.memberRating || '—' }}</td>
+                      <td :rowspan="row.memberRowSpan">
+                        {{ row.memberCreditTotal == null ? '—' : formatWan(row.memberCreditTotal) + '万元' }}
+                      </td>
+                    </template>
+                    <td>{{ row.quotaType || '—' }}</td>
+                    <td>{{ row.usageMethod || '—' }}</td>
+                    <td>{{ row.amount == null ? '—' : formatWan(row.amount) + '万元' }}</td>
+                    <td>{{ row.term || '—' }}</td>
+                    <td>{{ row.revolving || '—' }}</td>
+                    <td>{{ row.interestRate || '—' }}</td>
+                    <td>{{ row.marginRate || '' }}</td>
+                  </tr>
+                  <tr v-if="!groupAllocationRows.length">
+                    <td colspan="10" class="allocation-empty-cell">暂无成员授信分配信息</td>
+                  </tr>
+                </tbody>
+              </table>
+            </td>
           </tr>
           <tr class="large-row">
             <th>授信意见及条件</th>
@@ -446,6 +551,59 @@ function formatWan(value) {
 .group-notice-table .group-member-name {
   text-align: left;
 }
+
+.group-allocation-title-row th {
+  height: 26px;
+  background: #d9d9d9;
+}
+
+.group-allocation-content-row > td {
+  padding: 0;
+}
+
+.group-member-allocation-table {
+  width: 100%;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.group-member-allocation-table th,
+.group-member-allocation-table td {
+  min-width: 0;
+  height: 31px;
+  padding: 2px 3px;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid #000;
+}
+
+.group-member-allocation-table th {
+  font-weight: 700;
+}
+
+.group-member-allocation-table .allocation-member-name {
+  text-align: left;
+}
+
+.group-member-allocation-table .allocation-empty-cell {
+  height: 28px;
+  text-align: center;
+}
+
+.group-member-allocation-table .allocation-member-column { width: 12%; }
+.group-member-allocation-table .allocation-rating-column { width: 8%; }
+.group-member-allocation-table .allocation-total-column { width: 12%; }
+.group-member-allocation-table .allocation-type-column { width: 12%; }
+.group-member-allocation-table .allocation-use-column { width: 15%; }
+.group-member-allocation-table .allocation-amount-column { width: 12%; }
+.group-member-allocation-table .allocation-term-column { width: 8%; }
+.group-member-allocation-table .allocation-revolving-column { width: 8%; }
+.group-member-allocation-table .allocation-rate-column { width: 7%; }
+.group-member-allocation-table .allocation-margin-column { width: 6%; }
 
 .partner-notice-table .partner-product-column { width: 22%; }
 .partner-notice-table .partner-type-column { width: 16%; }
