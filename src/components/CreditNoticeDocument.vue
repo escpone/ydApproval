@@ -71,6 +71,16 @@ const groupAllocationRows = computed(() => {
         ?? quota?.creditTotal,
       quotaType: quota?.quotaType || quota?.amountType || '',
       usageMethod: quota?.usageMethod || quota?.useMethod || quota?.productName || quota?.businessType || '',
+      creditPurpose: quota?.creditPurpose
+        || quota?.usagePurpose
+        || quota?.purpose
+        || quota?.creditUse
+        || quota?.usageDesc
+        || member.creditPurpose
+        || member.usagePurpose
+        || source.creditPurpose
+        || props.notice?.creditPurpose
+        || '',
       amount: quota?.approvedAmount ?? quota?.amount ?? quota?.appliedAmount,
       term: quota?.approvedTerm ?? quota?.termMonths ?? quota?.term ?? '',
       revolving: quota?.isRevolving ?? quota?.isLoop ?? quota?.approvedShared ?? quota?.allowShared ?? '',
@@ -257,7 +267,10 @@ const groupAllocationRows = computed(() => {
                       </td>
                     </template>
                     <td>{{ row.quotaType || '—' }}</td>
-                    <td>{{ row.usageMethod || '—' }}</td>
+                    <td class="allocation-usage-cell">
+                      <span>{{ row.usageMethod || '—' }}</span>
+                      <span class="allocation-purpose">{{ row.creditPurpose || '—' }}</span>
+                    </td>
                     <td>{{ row.amount == null ? '—' : formatWan(row.amount) + '万元' }}</td>
                     <td>{{ row.term || '—' }}</td>
                     <td>{{ row.revolving || '—' }}</td>
@@ -587,6 +600,20 @@ const groupAllocationRows = computed(() => {
 
 .group-member-allocation-table .allocation-member-name {
   text-align: left;
+}
+
+.group-member-allocation-table .allocation-usage-cell {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.group-member-allocation-table .allocation-usage-cell > span {
+  display: block;
+  min-height: 17px;
+}
+
+.group-member-allocation-table .allocation-usage-cell .allocation-purpose {
+  border-top: 1px solid #000;
 }
 
 .group-member-allocation-table .allocation-empty-cell {
